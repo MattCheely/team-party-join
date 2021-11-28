@@ -4,11 +4,13 @@ import Api.Data exposing (Data(..))
 import Api.Steam as Steam
 import Api.Steam.PlayerService exposing (GameList, GameSummary)
 import Bridge exposing (..)
+import Dict exposing (Dict)
 import Html exposing (..)
-import Html.Attributes exposing (value)
+import Html.Attributes exposing (class, value)
 import Html.Events as Events exposing (onClick, onInput)
 import Page
 import Request exposing (Request)
+import Set exposing (Set)
 import Shared
 import View exposing (View)
 
@@ -28,8 +30,8 @@ page shared _ =
 
 
 type alias Model =
-    { steamId : String
-    , gameList : Data Steam.Error GameList
+    { steamIds : List String
+    , gamesByUser : Dict String (Data Steam.Error GameList)
     }
 
 
@@ -38,11 +40,96 @@ init shared =
     let
         model : Model
         model =
-            { steamId = "76561197982907529"
-            , gameList = NotAsked
+            { steamIds =
+                [ --ben
+                  "76561197982907529"
+                , --me
+                  "76561197984011697"
+                ]
+            , gamesByUser = Dict.empty
             }
     in
     ( model, Cmd.none )
+
+
+updateIdAt : Int -> String -> List String -> List String
+updateIdAt updateAt newId steamIds =
+    steamIds
+        |> List.indexedMap
+            (\idx currentId ->
+                if idx == updateAt then
+                    newId
+
+                else
+                    currentId
+            )
+
+
+type GameOptions
+    = Working
+    | Finished
+        { games : Dict Int GameSummary
+        , errorIds : List String
+        }
+
+
+buildGameOptions : Dict String (Data Steam.Error GameList) -> GameOptions
+buildGameOptions gamesByUser =
+    buildGameOptionsRecur (Dict.toList gamesByUser)
+        { games = Nothing, errorIds = [] }
+
+
+buildGameOptionsRecur :
+    List ( String, Data Steam.Error GameList )
+    -> { games : Maybe (Dict Int GameSummary), errorIds : List String }
+    -> GameOptions
+buildGameOptionsRecur uncheckedRequests optionsSoFar =
+    case uncheckedRequests of
+        [] ->
+            -- We're Done
+            Finished
+                { games = Maybe.withDefault Dict.empty optionsSoFar.games
+                , errorIds = optionsSoFar.errorIds
+                }
+
+        ( nextId, nextReq ) :: rest ->
+            case nextReq of
+                Loading ->
+                    Working
+
+                -- This shouldn't happen, but let's call it Working
+                NotAsked ->
+                    Working
+
+                Failure _ ->
+                    { optionsSoFar | errorIds = nextId :: optionsSoFar.errorIds }
+                        |> buildGameOptionsRecur rest
+
+                Success gameList ->
+                    let
+                        sharedGames =
+                            case optionsSoFar.games of
+                                Nothing ->
+                                    Just (gameListAsDict gameList)
+
+                                Just gamesSoFar ->
+                                    Just (intersectGames gameList gamesSoFar)
+                    in
+                    { optionsSoFar | games = sharedGames }
+                        |> buildGameOptionsRecur rest
+
+
+gameListAsDict : GameList -> Dict Int GameSummary
+gameListAsDict gameList =
+    gameList.games
+        |> List.map (\summary -> ( summary.appId, summary ))
+        |> Dict.fromList
+
+
+intersectGames : GameList -> Dict Int GameSummary -> Dict Int GameSummary
+intersectGames gameList gameDict =
+    gameListAsDict gameList
+        |> Dict.intersect gameDict
 
 
 
@@ -50,25 +137,46 @@ init shared =
 
 
 type Msg
-    = UpdatedSteamId String
+    = UpdatedId Int String
+    | NewSteamId String
     | LookupGames
-    | GotGames (Data Steam.Error GameList)
+    | GotGames String (Data Steam.Error GameList)
 
 
 update : Shared.Model -> Msg -> Model -> ( Model, Cmd Msg )
 update shared msg model =
     case msg of
-        UpdatedSteamId steamId ->
-            ( { model | steamId = steamId }, Cmd.none )
+        NewSteamId steamId ->
+            ( { model | steamIds = model.steamIds ++ [ steamId ] }, Cmd.none )
 
-        LookupGames ->
-            ( { model | gameList = Loading }
-            , LookupGames_Home { steamId = model.steamId }
-                |> sendToBackend
+        UpdatedId idx steamId ->
+            ( { model | steamIds = updateIdAt idx steamId model.steamIds }
+            , Cmd.none
             )
 
-        GotGames response ->
-            ( { model | gameList = response }, Cmd.none )
+        LookupGames ->
+            ( { model
+                | gamesByUser =
+                    model.steamIds
+                        |> List.map (\id -> ( id, Loading ))
+                        |> Dict.fromList
+              }
+            , Cmd.batch (List.map lookupGamesForUser model.steamIds)
+            )
+
+        GotGames steamId response ->
+            ( { model
+                | gamesByUser =
+                    model.gamesByUser
+                        |> Dict.insert steamId response
+              }
+            , Cmd.none
+            )
+
+
+lookupGamesForUser : String -> Cmd Msg
+lookupGamesForUser steamId =
+    sendToBackend (LookupGames_Home { steamId = steamId })
 
 
 subscriptions : Model -> Sub Msg
@@ -84,27 +192,73 @@ view : Shared.Model -> Model -> View Msg
 view shared model =
     { title = ""
     , body =
-        case model.gameList of
-            NotAsked ->
-                [ input [ value model.steamId, onInput UpdatedSteamId ] []
-                , button [ onClick LookupGames ] [ text "Lookup Games" ]
-                ]
+        if Dict.isEmpty model.gamesByUser then
+            [ enterIdsView model.steamIds ]
 
-            Loading ->
-                [ text "Loading..." ]
-
-            Success games ->
-                [ gamesView games ]
-
-            Failure err ->
-                [ text "Failed to fetch games" ]
+        else
+            [ multiplayerOptionsView model.gamesByUser ]
     }
 
 
-gamesView : GameList -> Html Msg
-gamesView { games } =
+multiplayerOptionsView : Dict String (Data Steam.Error GameList) -> Html Msg
+multiplayerOptionsView gamesByUser =
+    let
+        options =
+            buildGameOptions gamesByUser
+    in
+    case options of
+        Working ->
+            text "Loading..."
+
+        Finished status ->
+            div []
+                [ userSummariesView gamesByUser
+                , h3 [] [ text (String.fromInt (Dict.size status.games)), text " shared games" ]
+                , div [] (List.map gameSummaryView (Dict.values status.games))
+                ]
+
+
+userSummariesView : Dict String (Data Steam.Error GameList) -> Html Msg
+userSummariesView userStatuses =
     div []
-        (List.map gameSummaryView games)
+        (List.map userSummaryView (Dict.toList userStatuses))
+
+
+userSummaryView : ( String, Data Steam.Error GameList ) -> Html Msg
+userSummaryView ( steamId, gameResponse ) =
+    case gameResponse of
+        NotAsked ->
+            div [] [ text steamId, text ": Data not requested" ]
+
+        Loading ->
+            div [] [ text steamId, text ": Loading..." ]
+
+        Failure _ ->
+            div [] [ text steamId, text ": Error fetching game list" ]
+
+        Success gameList ->
+            div [] [ text steamId, text ": ", text (String.fromInt gameList.gameCount), text " games" ]
+
+
+enterIdsView : List String -> Html Msg
+enterIdsView steamIds =
+    div []
+        [ div []
+            (List.indexedMap idInputView steamIds
+                ++ [ div []
+                        [ input [ onInput NewSteamId, value "" ] []
+                        ]
+                   ]
+            )
+        , button [ onClick LookupGames ] [ text "Find Multiplayer Options" ]
+        ]
+
+
+idInputView : Int -> String -> Html Msg
+idInputView idx steamId =
+    div []
+        [ input [ onInput (UpdatedId idx), value steamId ] []
+        ]
 
 
 gameSummaryView : GameSummary -> Html Msg

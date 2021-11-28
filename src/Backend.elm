@@ -46,9 +46,16 @@ init =
 update : BackendMsg -> Model -> ( Model, Cmd BackendMsg )
 update msg model =
     case msg of
-        GotGames_Home cid response ->
+        GotGames_Home cid steamId response ->
             ( model
-            , sendToFrontend cid (PageMsg (Gen.Msg.Home_ (Pages.Home_.GotGames (Data.fromResult response))))
+            , sendToFrontend cid
+                (PageMsg
+                    (Gen.Msg.Home_
+                        (Pages.Home_.GotGames steamId
+                            (Data.fromResult response)
+                        )
+                    )
+                )
             )
 
         CheckSession sid cid ->
@@ -79,7 +86,7 @@ updateFromFrontend sessionId clientId msg model =
         LookupGames_Home params ->
             ( model
             , PlayerService.getOwnedGames
-                (GotGames_Home clientId)
+                (GotGames_Home clientId params.steamId)
                 { steamId = params.steamId }
             )
 

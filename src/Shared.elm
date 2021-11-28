@@ -79,10 +79,10 @@ view :
 view req { page, toMsg } model =
     { title =
         if String.isEmpty page.title then
-            "Conduit"
+            "Steam Shared Games"
 
         else
-            page.title ++ " | Conduit"
+            page.title
     , body =
         css
             ++ [ div [ class "dark-mode p-10", style "min-height" "100%" ]

@@ -45,7 +45,7 @@ type alias ToBackend =
 
 
 type BackendMsg
-    = GotGames_Home ClientId (Result Steam.Error GameList)
+    = GotGames_Home ClientId String (Result Steam.Error GameList)
       -- Legacy lamdera-realworld messages
     | CheckSession SessionId ClientId
     | RenewSession UserId SessionId ClientId Time.Posix
