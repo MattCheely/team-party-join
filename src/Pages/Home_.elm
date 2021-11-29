@@ -3,10 +3,11 @@ module Pages.Home_ exposing (Model, Msg(..), page)
 import Api.Data exposing (Data(..))
 import Api.Steam as Steam
 import Api.Steam.PlayerService exposing (GameList, GameSummary)
+import Auth exposing (User)
 import Bridge exposing (..)
 import Dict exposing (Dict)
 import Html exposing (..)
-import Html.Attributes exposing (class, value)
+import Html.Attributes exposing (class, src, value)
 import Html.Events as Events exposing (onClick, onInput)
 import Page
 import Request exposing (Request)
@@ -17,12 +18,14 @@ import View exposing (View)
 
 page : Shared.Model -> Request -> Page.With Model Msg
 page shared _ =
-    Page.element
-        { init = init shared
-        , update = update shared
-        , subscriptions = subscriptions
-        , view = view shared
-        }
+    Page.protected.element
+        (\user ->
+            { init = init shared
+            , update = update shared
+            , subscriptions = subscriptions
+            , view = view shared user
+            }
+        )
 
 
 
@@ -188,9 +191,9 @@ subscriptions _ =
 -- VIEW
 
 
-view : Shared.Model -> Model -> View Msg
-view shared model =
-    { title = ""
+view : Shared.Model -> User -> Model -> View Msg
+view shared user model =
+    { title = "Home"
     , body =
         if Dict.isEmpty model.gamesByUser then
             [ enterIdsView model.steamIds ]

@@ -129,7 +129,10 @@ updateFromBackend : ToFrontend -> Model -> ( Model, Cmd FrontendMsg )
 updateFromBackend msg model =
     case msg of
         ActiveSession user ->
-            update (Shared <| Shared.SignedInUser user) model
+            update (Shared <| Shared.UserResult (Ok user)) model
+
+        SharedMsg sharedMsg ->
+            update (Shared sharedMsg) model
 
         PageMsg pageMsg ->
             update (Page pageMsg) model

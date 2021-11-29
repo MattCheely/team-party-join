@@ -1,21 +1,21 @@
 module Auth exposing (User, beforeProtectedInit)
 
-import Api.User
+import Api.Steam.SteamUser exposing (PlayerSummary)
 import ElmSpa.Page as ElmSpa
 import Gen.Route exposing (Route)
 import Request exposing (Request)
-import Shared
+import Shared exposing (UserStatus(..))
 
 
 type alias User =
-    Api.User.User
+    PlayerSummary
 
 
-beforeProtectedInit : Shared.Model -> Request -> ElmSpa.Protected User Route
+beforeProtectedInit : Shared.Model -> Request -> ElmSpa.Protected PlayerSummary Route
 beforeProtectedInit shared req =
     case shared.user of
-        Just user ->
+        LoggedIn user ->
             ElmSpa.Provide user
 
-        Nothing ->
+        _ ->
             ElmSpa.RedirectTo Gen.Route.Login

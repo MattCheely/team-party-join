@@ -6,9 +6,6 @@ import ElmSpa.Page
 import Gen.Params.Home_
 import Gen.Params.Login
 import Gen.Params.NotFound
-import Gen.Params.Register
-import Gen.Params.Settings
-import Gen.Params.Profile.Username_
 import Gen.Model as Model
 import Gen.Msg as Msg
 import Gen.Route as Route exposing (Route)
@@ -16,9 +13,6 @@ import Page exposing (Page)
 import Pages.Home_
 import Pages.Login
 import Pages.NotFound
-import Pages.Register
-import Pages.Settings
-import Pages.Profile.Username_
 import Request exposing (Request)
 import Shared
 import Task
@@ -45,15 +39,6 @@ init route =
     
         Route.NotFound ->
             pages.notFound.init ()
-    
-        Route.Register ->
-            pages.register.init ()
-    
-        Route.Settings ->
-            pages.settings.init ()
-    
-        Route.Profile__Username_ params ->
-            pages.profile__username_.init params
 
 
 update : Msg -> Model -> Shared.Model -> Url -> Key -> ( Model, Effect Msg )
@@ -64,15 +49,6 @@ update msg_ model_ =
     
         ( Msg.Login msg, Model.Login params model ) ->
             pages.login.update params msg model
-    
-        ( Msg.Register msg, Model.Register params model ) ->
-            pages.register.update params msg model
-    
-        ( Msg.Settings msg, Model.Settings params model ) ->
-            pages.settings.update params msg model
-    
-        ( Msg.Profile__Username_ msg, Model.Profile__Username_ params model ) ->
-            pages.profile__username_.update params msg model
 
         _ ->
             \_ _ _ -> ( model_, Effect.none )
@@ -92,15 +68,6 @@ view model_ =
     
         Model.NotFound params ->
             pages.notFound.view params ()
-    
-        Model.Register params model ->
-            pages.register.view params model
-    
-        Model.Settings params model ->
-            pages.settings.view params model
-    
-        Model.Profile__Username_ params model ->
-            pages.profile__username_.view params model
 
 
 subscriptions : Model -> Shared.Model -> Url -> Key -> Sub Msg
@@ -117,15 +84,6 @@ subscriptions model_ =
     
         Model.NotFound params ->
             pages.notFound.subscriptions params ()
-    
-        Model.Register params model ->
-            pages.register.subscriptions params model
-    
-        Model.Settings params model ->
-            pages.settings.subscriptions params model
-    
-        Model.Profile__Username_ params model ->
-            pages.profile__username_.subscriptions params model
 
 
 
@@ -136,17 +94,11 @@ pages :
     { home_ : Bundle Gen.Params.Home_.Params Pages.Home_.Model Pages.Home_.Msg
     , login : Bundle Gen.Params.Login.Params Pages.Login.Model Pages.Login.Msg
     , notFound : Static Gen.Params.NotFound.Params
-    , register : Bundle Gen.Params.Register.Params Pages.Register.Model Pages.Register.Msg
-    , settings : Bundle Gen.Params.Settings.Params Pages.Settings.Model Pages.Settings.Msg
-    , profile__username_ : Bundle Gen.Params.Profile.Username_.Params Pages.Profile.Username_.Model Pages.Profile.Username_.Msg
     }
 pages =
     { home_ = bundle Pages.Home_.page Model.Home_ Msg.Home_
     , login = bundle Pages.Login.page Model.Login Msg.Login
     , notFound = static Pages.NotFound.view Model.NotFound
-    , register = bundle Pages.Register.page Model.Register Msg.Register
-    , settings = bundle Pages.Settings.page Model.Settings Msg.Settings
-    , profile__username_ = bundle Pages.Profile.Username_.page Model.Profile__Username_ Msg.Profile__Username_
     }
 
 

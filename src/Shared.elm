@@ -2,20 +2,23 @@ module Shared exposing
     ( Flags
     , Model
     , Msg(..)
+    , UserStatus(..)
     , init
     , subscriptions
     , update
     , view
     )
 
-import Api.User exposing (User)
+import Api.Data exposing (Data(..))
+import Api.Steam as Steam
+import Api.Steam.OpenId as OpenId
+import Api.Steam.SteamUser exposing (PlayerSummary)
 import Bridge exposing (..)
-import Components.Footer
-import Components.Navbar
+import Gen.Route as Route
 import Html exposing (..)
-import Html.Attributes exposing (class, href, rel, style)
+import Html.Attributes exposing (alt, class, href, rel, src, style)
+import Html.Events exposing (onClick)
 import Request exposing (Request)
-import Utils.Route
 import View exposing (View)
 
 
@@ -28,15 +31,26 @@ type alias Flags =
 
 
 type alias Model =
-    { user : Maybe User
+    { user : UserStatus
     }
 
 
+type UserStatus
+    = LoggedOut
+    | LoggedIn PlayerSummary
+    | ProfileError Steam.Error
+
+
 init : Request -> Flags -> ( Model, Cmd Msg )
-init _ json =
-    ( Model Nothing
-    , Cmd.none
-    )
+init req _ =
+    case OpenId.parseResponseUrl req.url of
+        Just steamId ->
+            ( { user = LoggedOut }
+            , sendToBackend (GetUserInfo_Shared steamId)
+            )
+
+        Nothing ->
+            ( { user = LoggedOut }, Cmd.none )
 
 
 
@@ -45,21 +59,28 @@ init _ json =
 
 type Msg
     = ClickedSignOut
-    | SignedInUser User
+    | UserResult (Result Steam.Error PlayerSummary)
 
 
 update : Request -> Msg -> Model -> ( Model, Cmd Msg )
-update _ msg model =
+update req msg model =
     case msg of
-        SignedInUser user ->
-            ( { model | user = Just user }
-            , Cmd.none
+        UserResult (Ok playerSummary) ->
+            ( { model | user = LoggedIn playerSummary }
+            , Request.replaceRoute Route.Home_ req
             )
 
+        UserResult (Err error) ->
+            ( { model | user = ProfileError error }, Cmd.none )
+
         ClickedSignOut ->
-            ( { model | user = Nothing }
-            , model.user |> Maybe.map (\user -> sendToBackend (SignedOut user)) |> Maybe.withDefault Cmd.none
-            )
+            ( { model | user = LoggedOut }, sendToBackend SignedOut )
+
+
+
+-- ( { model | user = Nothing }
+-- , model.user |> Maybe.map (\user -> sendToBackend (SignedOut user)) |> Maybe.withDefault Cmd.none
+-- )
 
 
 subscriptions : Request -> Model -> Sub Msg
@@ -84,15 +105,38 @@ view req { page, toMsg } model =
         else
             page.title
     , body =
-        css
-            ++ [ div [ class "dark-mode p-10", style "min-height" "100%" ]
-                    [ div [ class "page" ] page.body
-                    ]
-               ]
+        [ css
+        , div [ class "dark-mode p-10", style "height" "100vh" ]
+            (Html.map toMsg (userHeader model.user) :: page.body)
+        ]
     }
 
 
+userHeader : UserStatus -> Html Msg
+userHeader userStatus =
+    case userStatus of
+        LoggedIn user ->
+            div
+                [ class "d-flex align-items-center"
+                , class "mb-10"
+                ]
+                [ div [ class "d-flex align-items-center" ]
+                    [ img
+                        [ class "flex-shrink-0 rounded-circle"
+                        , alt ""
+                        , src user.avatar
+                        ]
+                        []
+                    ]
+                , h1 [ class "ml-10 d-inline my-0" ] [ text user.personaName ]
+                , button [ class "btn align-top ml-auto", onClick ClickedSignOut ]
+                    [ text "Sign Out" ]
+                ]
+
+        _ ->
+            text ""
+
+
+css : Html msg
 css =
-    -- Import Ionicon icons & Google Fonts our Bootstrap theme relies on
-    [ Html.node "link" [ rel "stylesheet", href "//cdn.jsdelivr.net/npm/halfmoon@1.1.1/css/halfmoon-variables.min.css" ] []
-    ]
+    Html.node "link" [ rel "stylesheet", href "/style.css" ] []

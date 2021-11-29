@@ -1,6 +1,6 @@
 module Api.Steam.PlayerService exposing (GameList, GameSummary, getOwnedGames)
 
-import Api.Steam as Steam exposing (QueryParameter, boolParam, stringParam)
+import Api.Steam as Steam exposing (QueryParameter, SteamId, boolParam, stringParam)
 import Http
 import Json.Decode as Decode exposing (Decoder)
 
@@ -23,12 +23,12 @@ type alias GameSummary =
 -}
 getOwnedGames :
     (Result Steam.Error GameList -> msg)
-    -> { steamId : String }
+    -> { steamId : SteamId }
     -> Cmd msg
 getOwnedGames msg params =
     Http.get
         { url =
-            urlFor "GetOwnedGames"
+            urlFor [ "GetOwnedGames", "v1" ]
                 [ stringParam "steamid" params.steamId
                 , boolParam "include_appinfo" True
                 , boolParam "inlcude_played_free_games" True
@@ -36,18 +36,15 @@ getOwnedGames msg params =
                 -- Skipping appids_filter because I don't want to write a query encoder
                 -- for lists until we actually need it
                 ]
-        , expect =
-            Http.expectJson
-                (Result.mapError Steam.translateError >> msg)
-                gameListDecoder
+        , expect = Steam.expectJson msg gameListDecoder
         }
 
 
 {-| Generates a PlayerService request with the appropriate origin and API key
 -}
-urlFor : String -> List QueryParameter -> String
-urlFor =
-    Steam.urlFor "IPlayerService"
+urlFor : List String -> List QueryParameter -> String
+urlFor path =
+    Steam.urlFor ("IPlayerService" :: path)
 
 
 
