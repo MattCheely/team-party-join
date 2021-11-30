@@ -106,7 +106,7 @@ view req { page, toMsg } model =
             page.title
     , body =
         [ css
-        , div [ class "dark-mode p-10", style "height" "100vh" ]
+        , div [ class "dark-mode p-10 position-relative", style "min-height" "100vh" ]
             (Html.map toMsg (userHeader model.user) :: page.body)
         ]
     }

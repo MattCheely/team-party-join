@@ -6,4 +6,4 @@ module Env exposing (..)
 
 steamApiKey : String
 steamApiKey =
-    ""
+    "CFA6CD1A40754A55757E8539647509E6"

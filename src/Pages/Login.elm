@@ -107,7 +107,10 @@ view model =
 
 signInView : Html Msg
 signInView =
-    div [ class "h-full d-flex justify-content-center algin-items-center" ]
+    div
+        [ class "d-flex justify-content-center algin-items-center"
+        , class "position-absolute top-0 left-0 bottom-0 right-0"
+        ]
         [ button [ class "btn-image", onClick SteamSignIn ]
             [ img [ src "/steam-sign-in.png", alt "Sign in with Steam" ] []
             ]
