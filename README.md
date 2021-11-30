@@ -2,28 +2,41 @@
 
 This application was built with
 
-- [Lamdera](https://lamdera.com), a delightful platform
-  for full-stack web apps
+- [Lamdera](https://lamdera.com), a delightful platform for full-stack web apps
 - [elm-spa](https://elm-spa.dev), a friendly tool for building SPAs with Elm!
+- [halfmoon](https://www.gethalfmoon.com), a responsive front-end CSS framework
 
 Check out the [the source code](./src) to get a feel for the project structure!
 
 # Getting started
 
-Clone the project and boot the Lamdera local dev environment:
+Clone the project.
 
 in the project directory run:
 
-```
+```sh
 lamdera reset
+```
+
+to setup lamdera. Then run:
+
+```sh
+elm-spa watch
+```
+
+This will cause elm-spa to rebuild it's generated code when pages are added or
+updated.
+
+In another terminal run:
+
+```sh
 lamdera live
 ```
 
-You may also need to run `elm-spa watch` to automatically pick up any changes
-`elm-spa` needs to generate code for.
+this will start the local lamdera server and make the app available in your
+browser.
 
-For any `elm-spa` changes, such as vendoring one of the `.elm-spa` defaults, re-run `elm-spa make`.
-
-Note: the `.elm-spa` folder currently needs to be committed to successfully deploy, as Lamdera doesn't run elm-spa build commands.
+Note: the `.elm-spa` folder needs to be committed to successfully deploy, as
+Lamdera doesn't run elm-spa build commands.
 
 See [Getting Started](https://lamdera.com/start) if you're new to Lamdera.
