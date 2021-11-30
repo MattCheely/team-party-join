@@ -3,27 +3,25 @@ module Pages.Home_ exposing (Model, Msg(..), page)
 import Api.Data exposing (Data(..))
 import Api.Steam as Steam
 import Api.Steam.PlayerService exposing (GameList, GameSummary)
-import Auth exposing (User)
 import Bridge exposing (..)
 import Dict exposing (Dict)
 import Html exposing (..)
-import Html.Attributes exposing (class, src, value)
-import Html.Events as Events exposing (onClick, onInput)
+import Html.Attributes exposing (value)
+import Html.Events exposing (onClick, onInput)
 import Page
 import Request exposing (Request)
-import Set exposing (Set)
 import Shared
 import View exposing (View)
 
 
 page : Shared.Model -> Request -> Page.With Model Msg
-page shared _ =
+page _ _ =
     Page.protected.element
         (\user ->
-            { init = init shared
-            , update = update shared
+            { init = init
+            , update = update
             , subscriptions = subscriptions
-            , view = view shared user
+            , view = view
             }
         )
 
@@ -38,21 +36,13 @@ type alias Model =
     }
 
 
-init : Shared.Model -> ( Model, Cmd Msg )
-init shared =
-    let
-        model : Model
-        model =
-            { steamIds =
-                [ --ben
-                  "76561197982907529"
-                , --me
-                  "76561197984011697"
-                ]
-            , gamesByUser = Dict.empty
-            }
-    in
-    ( model, Cmd.none )
+init : ( Model, Cmd Msg )
+init =
+    ( { steamIds = []
+      , gamesByUser = Dict.empty
+      }
+    , Cmd.none
+    )
 
 
 updateIdAt : Int -> String -> List String -> List String
@@ -146,8 +136,8 @@ type Msg
     | GotGames String (Data Steam.Error GameList)
 
 
-update : Shared.Model -> Msg -> Model -> ( Model, Cmd Msg )
-update shared msg model =
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
     case msg of
         NewSteamId steamId ->
             ( { model | steamIds = model.steamIds ++ [ steamId ] }, Cmd.none )
@@ -191,8 +181,8 @@ subscriptions _ =
 -- VIEW
 
 
-view : Shared.Model -> User -> Model -> View Msg
-view shared user model =
+view : Model -> View Msg
+view model =
     { title = "Home"
     , body =
         if Dict.isEmpty model.gamesByUser then
