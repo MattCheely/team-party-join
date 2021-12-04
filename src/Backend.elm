@@ -2,7 +2,7 @@ module Backend exposing (..)
 
 import Api.Data as Data exposing (Data(..))
 import Api.Steam.PlayerService as PlayerService
-import Api.Steam.SteamUser as SteamUser exposing (PlayerSummary)
+import Api.Steam.SteamUser as SteamUser exposing (FriendInfo, PlayerSummary)
 import Bridge exposing (..)
 import Dict
 import Dict.Extra as Dict
@@ -37,6 +37,18 @@ init =
 update : BackendMsg -> Model -> ( Model, Cmd BackendMsg )
 update msg model =
     case msg of
+        GotFriendsList_Home cid response ->
+            ( model
+            , sendToFrontend cid
+                (PageMsg
+                    (Gen.Msg.Home_
+                        (Pages.Home_.GotFriends
+                            (Data.fromResult response)
+                        )
+                    )
+                )
+            )
+
         GotGames_Home cid steamId response ->
             ( model
             , sendToFrontend cid
@@ -82,11 +94,14 @@ updateFromFrontend sessionId clientId msg model =
             sendToFrontend clientId v
     in
     case msg of
-        LookupGames_Home params ->
+        GetFriendsList_Home steamId ->
+            ( model, SteamUser.getFriendListDetails (GotFriendsList_Home clientId) steamId )
+
+        LookupGames_Home steamId ->
             ( model
             , PlayerService.getOwnedGames
-                (GotGames_Home clientId params.steamId)
-                { steamId = params.steamId }
+                (GotGames_Home clientId steamId)
+                { steamId = steamId }
             )
 
         GetUserInfo_Shared steamId ->

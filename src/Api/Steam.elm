@@ -6,12 +6,14 @@ module Api.Steam exposing
     , expectJson
     , intParam
     , stringParam
+    , taskGet
     , urlFor
     )
 
 import Env exposing (steamApiKey)
-import Http exposing (Error(..))
-import Json.Decode exposing (Decoder)
+import Http exposing (Error(..), Response(..), emptyBody)
+import Json.Decode exposing (Decoder, decodeString)
+import Task exposing (Task)
 import Url.Builder as Builder exposing (QueryParameter, crossOrigin)
 
 
@@ -77,3 +79,36 @@ translateError httpError =
 
         other ->
             InternalError
+
+
+{-| Normally we don't use tasks much, but Steam has a lot of APIs where you want to
+make a request and immeditately follow it up with another request to get useful data,
+and we need tasks for that
+-}
+taskGet : { url : String, decoder : Decoder a } -> Task Error a
+taskGet { url, decoder } =
+    Http.task
+        { method = "GET"
+        , url = url
+        , resolver = jsonResolver decoder
+        , headers = []
+        , body = emptyBody
+        , timeout = Nothing
+        }
+
+
+jsonResolver : Decoder a -> Http.Resolver Error a
+jsonResolver decoder =
+    Http.stringResolver
+        (\response ->
+            case response of
+                BadStatus_ metadata _ ->
+                    Err (translateError (BadStatus metadata.statusCode))
+
+                GoodStatus_ _ body ->
+                    decodeString decoder body
+                        |> Result.mapError (always InternalError)
+
+                _ ->
+                    Err InternalError
+        )

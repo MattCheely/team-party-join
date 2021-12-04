@@ -1,15 +1,18 @@
 module Pages.Home_ exposing (Model, Msg(..), page)
 
 import Api.Data exposing (Data(..))
-import Api.Steam as Steam
+import Api.Steam as Steam exposing (SteamId)
 import Api.Steam.PlayerService exposing (GameList, GameSummary)
+import Api.Steam.SteamUser exposing (PlayerSummary)
+import Auth exposing (User)
 import Bridge exposing (..)
 import Dict exposing (Dict)
 import Html exposing (..)
-import Html.Attributes exposing (value)
+import Html.Attributes exposing (alt, class, classList, src, value)
 import Html.Events exposing (onClick, onInput)
 import Page
 import Request exposing (Request)
+import Set exposing (Set)
 import Shared
 import View exposing (View)
 
@@ -18,7 +21,7 @@ page : Shared.Model -> Request -> Page.With Model Msg
 page _ _ =
     Page.protected.element
         (\user ->
-            { init = init
+            { init = init user
             , update = update
             , subscriptions = subscriptions
             , view = view
@@ -31,31 +34,20 @@ page _ _ =
 
 
 type alias Model =
-    { steamIds : List String
+    { friends : Data Steam.Error (List PlayerSummary)
+    , selectedFriends : Set SteamId
     , gamesByUser : Dict String (Data Steam.Error GameList)
     }
 
 
-init : ( Model, Cmd Msg )
-init =
-    ( { steamIds = []
+init : User -> ( Model, Cmd Msg )
+init user =
+    ( { friends = Loading
+      , selectedFriends = Set.empty
       , gamesByUser = Dict.empty
       }
-    , Cmd.none
+    , sendToBackend (GetFriendsList_Home user.steamId)
     )
-
-
-updateIdAt : Int -> String -> List String -> List String
-updateIdAt updateAt newId steamIds =
-    steamIds
-        |> List.indexedMap
-            (\idx currentId ->
-                if idx == updateAt then
-                    newId
-
-                else
-                    currentId
-            )
 
 
 type GameOptions
@@ -130,8 +122,8 @@ intersectGames gameList gameDict =
 
 
 type Msg
-    = UpdatedId Int String
-    | NewSteamId String
+    = GotFriends (Data Steam.Error (List PlayerSummary))
+    | ToggleSelected SteamId
     | LookupGames
     | GotGames String (Data Steam.Error GameList)
 
@@ -139,22 +131,32 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        NewSteamId steamId ->
-            ( { model | steamIds = model.steamIds ++ [ steamId ] }, Cmd.none )
+        GotFriends friends ->
+            ( { model | friends = friends }, Cmd.none )
 
-        UpdatedId idx steamId ->
-            ( { model | steamIds = updateIdAt idx steamId model.steamIds }
-            , Cmd.none
-            )
+        ToggleSelected steamId ->
+            let
+                newSelection =
+                    if Set.member steamId model.selectedFriends then
+                        Set.remove steamId model.selectedFriends
+
+                    else
+                        Set.insert steamId model.selectedFriends
+            in
+            ( { model | selectedFriends = newSelection }, Cmd.none )
 
         LookupGames ->
+            let
+                steamIds =
+                    Set.toList model.selectedFriends
+            in
             ( { model
                 | gamesByUser =
-                    model.steamIds
+                    steamIds
                         |> List.map (\id -> ( id, Loading ))
                         |> Dict.fromList
               }
-            , Cmd.batch (List.map lookupGamesForUser model.steamIds)
+            , Cmd.batch (List.map lookupGamesForUser steamIds)
             )
 
         GotGames steamId response ->
@@ -169,7 +171,7 @@ update msg model =
 
 lookupGamesForUser : String -> Cmd Msg
 lookupGamesForUser steamId =
-    sendToBackend (LookupGames_Home { steamId = steamId })
+    sendToBackend (LookupGames_Home steamId)
 
 
 subscriptions : Model -> Sub Msg
@@ -186,11 +188,62 @@ view model =
     { title = "Home"
     , body =
         if Dict.isEmpty model.gamesByUser then
-            [ enterIdsView model.steamIds ]
+            [ friendsSelectionView model.friends model.selectedFriends ]
 
         else
             [ multiplayerOptionsView model.gamesByUser ]
     }
+
+
+friendsSelectionView : Data Steam.Error (List PlayerSummary) -> Set SteamId -> Html Msg
+friendsSelectionView friendStatus selectedFriends =
+    case friendStatus of
+        NotAsked ->
+            text "Loading..."
+
+        Loading ->
+            text "Loading..."
+
+        Failure _ ->
+            text "Unable to fetch friend list. Please make sure that data is public."
+
+        Success friends ->
+            div []
+                [ div []
+                    (List.sortBy (.personaName >> String.toLower) friends
+                        |> List.map (friendSelectionView selectedFriends)
+                    )
+                , button [ class "btn-primary", onClick LookupGames ]
+                    [ text "Get Shared Games" ]
+                ]
+
+
+friendSelectionView : Set SteamId -> PlayerSummary -> Html Msg
+friendSelectionView selectedFriends friend =
+    let
+        selected =
+            Set.member friend.steamId selectedFriends
+    in
+    button
+        [ class "btn-image border rounded p-10"
+        , class "m-10"
+        , classList [ ( "bg-primary", selected ) ]
+        , onClick (ToggleSelected friend.steamId)
+        ]
+        [ div
+            [ class "d-inline-flex align-items-center"
+            , classList [ ( "fade-50", not selected ) ]
+            ]
+            [ img
+                [ class "rounded-circle w-25"
+                , src friend.avatar
+                , alt ""
+                ]
+                []
+            , div [ class "ml-10" ]
+                [ text friend.personaName ]
+            ]
+        ]
 
 
 multiplayerOptionsView : Dict String (Data Steam.Error GameList) -> Html Msg
@@ -207,7 +260,11 @@ multiplayerOptionsView gamesByUser =
             div []
                 [ userSummariesView gamesByUser
                 , h3 [] [ text (String.fromInt (Dict.size status.games)), text " shared games" ]
-                , div [] (List.map gameSummaryView (Dict.values status.games))
+                , div []
+                    (Dict.values status.games
+                        |> List.sortBy .name
+                        |> List.map gameSummaryView
+                    )
                 ]
 
 
@@ -231,27 +288,6 @@ userSummaryView ( steamId, gameResponse ) =
 
         Success gameList ->
             div [] [ text steamId, text ": ", text (String.fromInt gameList.gameCount), text " games" ]
-
-
-enterIdsView : List String -> Html Msg
-enterIdsView steamIds =
-    div []
-        [ div []
-            (List.indexedMap idInputView steamIds
-                ++ [ div []
-                        [ input [ onInput NewSteamId, value "" ] []
-                        ]
-                   ]
-            )
-        , button [ onClick LookupGames ] [ text "Find Multiplayer Options" ]
-        ]
-
-
-idInputView : Int -> String -> Html Msg
-idInputView idx steamId =
-    div []
-        [ input [ onInput (UpdatedId idx), value steamId ] []
-        ]
 
 
 gameSummaryView : GameSummary -> Html Msg

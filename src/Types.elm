@@ -2,7 +2,7 @@ module Types exposing (..)
 
 import Api.Steam as Steam exposing (SteamId)
 import Api.Steam.PlayerService exposing (GameList)
-import Api.Steam.SteamUser exposing (PlayerSummary)
+import Api.Steam.SteamUser exposing (FriendInfo, PlayerSummary)
 import Bridge
 import Browser
 import Browser.Navigation exposing (Key)
@@ -43,8 +43,9 @@ type alias ToBackend =
 
 
 type BackendMsg
-    = GotGames_Home ClientId SteamId (Result Steam.Error GameList)
-    | GotUserInfo_Shared SessionId ClientId (Result Steam.Error PlayerSummary)
+    = GotUserInfo_Shared SessionId ClientId (Result Steam.Error PlayerSummary)
+    | GotFriendsList_Home ClientId (Result Steam.Error (List PlayerSummary))
+    | GotGames_Home ClientId SteamId (Result Steam.Error GameList)
     | CheckSession SessionId ClientId
     | NoOpBackendMsg
 

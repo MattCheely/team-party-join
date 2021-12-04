@@ -41,4 +41,20 @@ p {
   padding: 0;
   border: none;
   cursor: pointer;
+  color: var(--dm-base-text-color);
+}
+
+.btn-image:focus {
+  color: var(--dm-button-text-color-focus);
+  background-color: var(--dm-button-bg-color-focus);
+  background-image: var(--dm-button-bg-image-focus);
+  border-color: var(--dm-button-border-color-focus);
+  -moz-box-shadow: var(--dm-button-box-shadow-focus);
+  -webkit-box-shadow: var(--dm-button-box-shadow-focus);
+  box-shadow: var(--dm-button-box-shadow-focus);
+  outline-color: var(--dm-button-outline-color-focus);
+}
+
+.fade-50 {
+  opacity: 0.5;
 }
