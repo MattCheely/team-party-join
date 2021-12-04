@@ -45,7 +45,8 @@ type alias ToBackend =
 type BackendMsg
     = GotUserInfo_Shared SessionId ClientId (Result Steam.Error PlayerSummary)
     | GotFriendsList_Home ClientId (Result Steam.Error (List PlayerSummary))
-    | GotGames_Home ClientId SteamId (Result Steam.Error GameList)
+    | GotGames_SharedGames ClientId SteamId (Result Steam.Error GameList)
+    | GotPlayerSummaries_SharedGames ClientId (Result Steam.Error (List PlayerSummary))
     | CheckSession SessionId ClientId
     | NoOpBackendMsg
 

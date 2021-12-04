@@ -32,6 +32,7 @@ type alias Flags =
 
 type alias Model =
     { user : UserStatus
+    , originalRoute : Route.Route
     }
 
 
@@ -45,12 +46,18 @@ init : Request -> Flags -> ( Model, Cmd Msg )
 init req _ =
     case OpenId.parseResponseUrl req.url of
         Just steamId ->
-            ( { user = LoggedOut }
+            ( { user = LoggedOut
+              , originalRoute = req.route
+              }
             , sendToBackend (GetUserInfo_Shared steamId)
             )
 
         Nothing ->
-            ( { user = LoggedOut }, Cmd.none )
+            ( { user = LoggedOut
+              , originalRoute = req.route
+              }
+            , Cmd.none
+            )
 
 
 
@@ -67,7 +74,7 @@ update req msg model =
     case msg of
         UserResult (Ok playerSummary) ->
             ( { model | user = LoggedIn playerSummary }
-            , Request.replaceRoute Route.Home_ req
+            , Request.replaceRoute model.originalRoute req
             )
 
         UserResult (Err error) ->

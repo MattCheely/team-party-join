@@ -9,8 +9,9 @@ sendToBackend =
 
 
 type ToBackend
-    = LookupGames_Home SteamId
+    = LookupGames_SharedGames SteamId
     | GetFriendsList_Home SteamId
     | GetUserInfo_Shared SteamId
+    | GetPlayerSummaries_SharedGames (List SteamId)
     | SignedOut
     | NoOpToBackend

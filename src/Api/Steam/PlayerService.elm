@@ -61,8 +61,21 @@ gameListDecoder =
 
 gameSummaryDecoder : Decoder GameSummary
 gameSummaryDecoder =
-    Decode.map4 GameSummary
-        (Decode.field "appid" Decode.int)
-        (Decode.field "name" Decode.string)
-        (Decode.field "img_icon_url" Decode.string)
-        (Decode.field "img_logo_url" Decode.string)
+    Decode.field "appid" Decode.int
+        |> Decode.andThen
+            (\appId ->
+                Decode.map4 GameSummary
+                    (Decode.succeed appId)
+                    (Decode.field "name" Decode.string)
+                    (Decode.field "img_icon_url" Decode.string
+                        |> Decode.map (imgUrl appId)
+                    )
+                    (Decode.field "img_logo_url" Decode.string
+                        |> Decode.map (imgUrl appId)
+                    )
+            )
+
+
+imgUrl : Int -> String -> String
+imgUrl appId hash =
+    "http://media.steampowered.com/steamcommunity/public/images/apps/" ++ String.fromInt appId ++ "/" ++ hash ++ ".jpg"

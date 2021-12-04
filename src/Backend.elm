@@ -9,6 +9,7 @@ import Dict.Extra as Dict
 import Gen.Msg
 import Lamdera exposing (..)
 import Pages.Home_
+import Pages.SharedGames.SteamIds_
 import Shared
 import Types exposing (BackendModel, BackendMsg(..), FrontendMsg(..), Session, ToFrontend(..))
 
@@ -49,14 +50,24 @@ update msg model =
                 )
             )
 
-        GotGames_Home cid steamId response ->
+        GotGames_SharedGames cid steamId response ->
             ( model
             , sendToFrontend cid
                 (PageMsg
-                    (Gen.Msg.Home_
-                        (Pages.Home_.GotGames steamId
+                    (Gen.Msg.SharedGames__SteamIds_
+                        (Pages.SharedGames.SteamIds_.GotGames steamId
                             (Data.fromResult response)
                         )
+                    )
+                )
+            )
+
+        GotPlayerSummaries_SharedGames cid response ->
+            ( model
+            , sendToFrontend cid
+                (PageMsg
+                    (Gen.Msg.SharedGames__SteamIds_
+                        (Pages.SharedGames.SteamIds_.GotPlayerSummaries (Data.fromResult response))
                     )
                 )
             )
@@ -97,12 +108,15 @@ updateFromFrontend sessionId clientId msg model =
         GetFriendsList_Home steamId ->
             ( model, SteamUser.getFriendListDetails (GotFriendsList_Home clientId) steamId )
 
-        LookupGames_Home steamId ->
+        LookupGames_SharedGames steamId ->
             ( model
             , PlayerService.getOwnedGames
-                (GotGames_Home clientId steamId)
+                (GotGames_SharedGames clientId steamId)
                 { steamId = steamId }
             )
+
+        GetPlayerSummaries_SharedGames steamIds ->
+            ( model, SteamUser.getPlayerSummaries (GotPlayerSummaries_SharedGames clientId) steamIds )
 
         GetUserInfo_Shared steamId ->
             ( model, SteamUser.getPlayerSummary (GotUserInfo_Shared sessionId clientId) steamId )
