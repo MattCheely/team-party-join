@@ -209,11 +209,11 @@ friendsSelectionView friendStatus selectedFriends =
 
         Success friends ->
             div []
-                [ div []
+                [ div [ class "row row-eq-spacing" ]
                     (List.sortBy (.personaName >> String.toLower) friends
                         |> List.map (friendSelectionView selectedFriends)
                     )
-                , button [ class "btn-primary", onClick LookupGames ]
+                , button [ class "btn btn-primary", onClick LookupGames ]
                     [ text "Get Shared Games" ]
                 ]
 
@@ -224,24 +224,27 @@ friendSelectionView selectedFriends friend =
         selected =
             Set.member friend.steamId selectedFriends
     in
-    button
-        [ class "btn-image border rounded p-10"
-        , class "m-10"
-        , classList [ ( "bg-primary", selected ) ]
-        , onClick (ToggleSelected friend.steamId)
-        ]
-        [ div
-            [ class "d-inline-flex align-items-center"
-            , classList [ ( "fade-50", not selected ) ]
+    div [ class "col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2" ]
+        [ button
+            [ class "btn-image border rounded p-10"
+            , classList [ ( "bg-primary", selected ) ]
+            , onClick (ToggleSelected friend.steamId)
+            , class "w-full mb-20"
+            , class "text-left text-truncate"
             ]
-            [ img
-                [ class "rounded-circle w-25"
-                , src friend.avatar
-                , alt ""
+            [ div
+                [ class "d-inline-flex align-items-center"
+                , classList [ ( "fade-50", not selected ) ]
                 ]
-                []
-            , div [ class "ml-10" ]
-                [ text friend.personaName ]
+                [ img
+                    [ class "rounded-circle w-25"
+                    , src friend.avatar
+                    , alt ""
+                    ]
+                    []
+                , div [ class "ml-10" ]
+                    [ text friend.personaName ]
+                ]
             ]
         ]
 
