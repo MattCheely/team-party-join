@@ -20,8 +20,11 @@ playerCard attrs player =
             , alt ""
             ]
             []
-        , div [ class "ml-10" ]
-            [ div [ class "font-size-16" ] [ text player.name ]
+        , div
+            [ class "ml-10 flex-grow-1 flex-shrink-1"
+            , class "text-truncate text-left"
+            ]
+            [ div [ class "font-size-16 text-truncate" ] [ text player.name ]
             , div [ class "font-size-12" ] [ text player.note ]
             ]
         ]

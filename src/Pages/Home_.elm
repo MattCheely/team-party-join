@@ -15,6 +15,7 @@ import Page
 import Request exposing (Request)
 import Set exposing (Set)
 import Shared
+import Ui
 import Utils.Route exposing (navigate)
 import View exposing (View)
 
@@ -121,13 +122,16 @@ friendsSelectionView friendStatus selectedFriends =
 
         Success friends ->
             div []
-                [ h2 [] [ text "Select Your Team" ]
-                , div [ class "row row-eq-spacing" ]
+                [ div []
+                    [ h2 [] [ text "Select Your Team" ] ]
+                , div [ class "row row-eq-spacing px-0 my-20" ]
                     (List.sortBy (.personaName >> String.toLower) friends
                         |> List.map (friendSelectionView selectedFriends)
                     )
-                , button [ class "btn btn-primary", onClick LookupGames ]
-                    [ text "Get Shared Games" ]
+                , div []
+                    [ button [ class "btn btn-primary", onClick LookupGames ]
+                        [ text "Get Shared Games" ]
+                    ]
                 ]
 
 
@@ -139,24 +143,11 @@ friendSelectionView selectedFriends friend =
     in
     div [ class "col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2" ]
         [ button
-            [ class "btn-image border rounded p-10"
+            [ class "btn-image w-full mb-10 rounded"
             , classList [ ( "bg-primary", selected ) ]
             , onClick (ToggleSelected friend.steamId)
-            , class "w-full mb-20"
-            , class "text-left text-truncate"
             ]
-            [ div
-                [ class "d-inline-flex align-items-center"
-                , classList [ ( "fade-50", not selected ) ]
-                ]
-                [ img
-                    [ class "rounded-circle w-25"
-                    , src friend.avatar
-                    , alt ""
-                    ]
-                    []
-                , div [ class "ml-10" ]
-                    [ text friend.personaName ]
-                ]
+            [ Ui.playerCard [ class "w-full" ]
+                { name = friend.personaName, avatar = friend.avatarMedium, note = "" }
             ]
         ]

@@ -113,7 +113,7 @@ view req { page, toMsg } model =
             page.title
     , body =
         [ css
-        , div [ class "dark-mode p-10 position-relative", style "min-height" "100vh" ]
+        , div [ class "dark-mode position-relative p-10", style "min-height" "100vh" ]
             (Html.map toMsg (userHeader model.user) :: page.body)
         ]
     }
@@ -124,7 +124,7 @@ userHeader userStatus =
     case userStatus of
         LoggedIn user ->
             div
-                [ class "d-flex align-items-center"
+                [ class "d-flex align-items-center col-12"
                 , class "mb-10"
                 ]
                 [ div [ class "d-flex align-items-center" ]
