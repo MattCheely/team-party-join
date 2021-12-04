@@ -2,12 +2,13 @@ module Evergreen.Migrate.V3 exposing (..)
 
 import Evergreen.V1.Types as Old
 import Evergreen.V3.Types as New
+import Frontend
 import Lamdera.Migrations exposing (..)
 
 
 frontendModel : Old.FrontendModel -> ModelMigration New.FrontendModel New.FrontendMsg
 frontendModel old =
-    ModelUnchanged
+    ModelMigrated <| Frontend.init old.url old.key
 
 
 backendModel : Old.BackendModel -> ModelMigration New.BackendModel New.BackendMsg
@@ -17,19 +18,19 @@ backendModel old =
 
 frontendMsg : Old.FrontendMsg -> MsgMigration New.FrontendMsg New.FrontendMsg
 frontendMsg old =
-    ModelUnchanged
+    MsgOldValueIgnored
 
 
 toBackend : Old.ToBackend -> MsgMigration New.ToBackend New.BackendMsg
 toBackend old =
-    ModelUnchanged
+    MsgOldValueIgnored
 
 
 backendMsg : Old.BackendMsg -> MsgMigration New.BackendMsg New.BackendMsg
 backendMsg old =
-    ModelUnchanged
+    MsgOldValueIgnored
 
 
 toFrontend : Old.ToFrontend -> MsgMigration New.ToFrontend New.FrontendMsg
 toFrontend old =
-    ModelUnchanged
+    MsgOldValueIgnored
