@@ -21,19 +21,12 @@ lamdera reset
 to setup lamdera. Then run:
 
 ```sh
-elm-spa watch
+npm install
+npm start
 ```
 
 This will cause elm-spa to rebuild it's generated code when pages are added or
-updated.
-
-In another terminal run:
-
-```sh
-lamdera live
-```
-
-this will start the local lamdera server and make the app available in your
+updated and start the local lamdera server and make the app available in your
 browser.
 
 Note: the `.elm-spa` folder needs to be committed to successfully deploy, as

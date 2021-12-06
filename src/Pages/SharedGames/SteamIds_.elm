@@ -1,7 +1,8 @@
 module Pages.SharedGames.SteamIds_ exposing (Model, Msg(..), page)
 
-import Api.Data exposing (Data(..))
+import Api.Data as Data exposing (Data(..))
 import Api.Steam as Steam
+import Api.Steam.Extra exposing (AppMetaData)
 import Api.Steam.PlayerService exposing (GameList, GameSummary)
 import Api.Steam.SteamUser exposing (PlayerSummary)
 import Bridge exposing (..)
@@ -11,6 +12,7 @@ import Html exposing (Html, a, div, h3, img, text)
 import Html.Attributes exposing (alt, class, href, src, target)
 import Page
 import Request
+import Set exposing (Set)
 import Shared
 import Ui
 import View exposing (View)
@@ -32,12 +34,19 @@ page shared req =
 
 type alias Model =
     { players : Dict String PlayerData
+    , games : Dict Int GameData
+    }
+
+
+type alias GameData =
+    { summary : GameSummary
+    , ownedBy : Set String
     }
 
 
 type alias PlayerData =
     { profile : Data Steam.Error PlayerSummary
-    , games : Data Steam.Error GameList
+    , gameCount : Data Steam.Error Int
     }
 
 
@@ -48,12 +57,13 @@ init params =
             String.split "," params.steamIds
 
         initialPlayerData =
-            { profile = Loading, games = Loading }
+            { profile = Loading, gameCount = Loading }
     in
     ( { players =
             steamIds
                 |> List.map (\id -> ( id, initialPlayerData ))
                 |> Dict.fromList
+      , games = Dict.empty
       }
     , sendToBackend (GetPlayerSummaries_SharedGames steamIds)
         :: List.map lookupGamesForUser steamIds
@@ -66,63 +76,13 @@ lookupGamesForUser steamId =
     sendToBackend (LookupGames_SharedGames steamId)
 
 
-type GameOptions
-    = Working
-    | Finished (Dict Int GameSummary)
-
-
-buildGameOptions : Dict String PlayerData -> GameOptions
-buildGameOptions playerData =
-    buildGameOptionsRecur (Dict.values playerData |> List.map .games)
-        Nothing
-
-
-buildGameOptionsRecur :
-    List (Data Steam.Error GameList)
-    -> Maybe (Dict Int GameSummary)
-    -> GameOptions
-buildGameOptionsRecur uncheckedRequests optionsSoFar =
-    case uncheckedRequests of
-        [] ->
-            -- We're Done
-            Finished (optionsSoFar |> Maybe.withDefault Dict.empty)
-
-        nextReq :: rest ->
-            case nextReq of
-                Loading ->
-                    Working
-
-                -- This shouldn't happen, but let's call it Working
-                NotAsked ->
-                    Working
-
-                Failure _ ->
-                    buildGameOptionsRecur rest optionsSoFar
-
-                Success gameList ->
-                    let
-                        sharedGames =
-                            case optionsSoFar of
-                                Nothing ->
-                                    Just (gameListAsDict gameList)
-
-                                Just gamesSoFar ->
-                                    Just (intersectGames gameList gamesSoFar)
-                    in
-                    buildGameOptionsRecur rest sharedGames
-
-
-gameListAsDict : GameList -> Dict Int GameSummary
-gameListAsDict gameList =
-    gameList.games
-        |> List.map (\summary -> ( summary.appId, summary ))
-        |> Dict.fromList
-
-
-intersectGames : GameList -> Dict Int GameSummary -> Dict Int GameSummary
-intersectGames gameList gameDict =
-    gameListAsDict gameList
-        |> Dict.intersect gameDict
+ownedByAll : Model -> List GameData
+ownedByAll model =
+    Dict.values model.games
+        |> List.filter
+            (\game ->
+                Set.size game.ownedBy == Dict.size model.players
+            )
 
 
 
@@ -149,18 +109,44 @@ update msg model =
             ( { model
                 | players =
                     model.players
-                        |> Dict.update steamId (setGamesResponse response)
+                        |> Dict.update steamId (setGameCount response)
+                , games =
+                    model.games |> addGamesFor steamId response
               }
             , Cmd.none
             )
 
 
-setGamesResponse : Data Steam.Error GameList -> Maybe PlayerData -> Maybe PlayerData
-setGamesResponse response playerData =
+addGamesFor : String -> Data Steam.Error GameList -> Dict Int GameData -> Dict Int GameData
+addGamesFor steamId gameResponse games =
+    case gameResponse of
+        Success gameList ->
+            List.foldl (addGameFor steamId) games gameList.games
+
+        _ ->
+            games
+
+
+addGameFor : String -> GameSummary -> Dict Int GameData -> Dict Int GameData
+addGameFor steamId summary gameDatas =
+    gameDatas
+        |> Dict.update summary.appId
+            (\gameData ->
+                Maybe.map (\data -> { data | ownedBy = Set.insert steamId data.ownedBy }) gameData
+                    |> Maybe.withDefault
+                        { summary = summary
+                        , ownedBy = Set.fromList [ steamId ]
+                        }
+                    |> Just
+            )
+
+
+setGameCount : Data Steam.Error GameList -> Maybe PlayerData -> Maybe PlayerData
+setGameCount response playerData =
     playerData
         |> Maybe.map
             (\data ->
-                { data | games = response }
+                { data | gameCount = Data.map .gameCount response }
             )
 
 
@@ -215,30 +201,29 @@ view : Model -> View Msg
 view model =
     { title = "Multiplayer Game Options"
     , body =
-        [ multiplayerOptionsView model.players ]
+        [ multiplayerOptionsView model ]
     }
 
 
-multiplayerOptionsView : Dict String PlayerData -> Html Msg
-multiplayerOptionsView playerData =
+multiplayerOptionsView : Model -> Html Msg
+multiplayerOptionsView model =
     let
-        options =
-            buildGameOptions playerData
-    in
-    case options of
-        Working ->
-            text "Loading..."
+        playerData =
+            model.players
 
-        Finished status ->
-            div []
-                [ playerSummariesView (Dict.values playerData)
-                , h3 [] [ text (String.fromInt (Dict.size status)), text " Multiplayer Options" ]
-                , div []
-                    (Dict.values status
-                        |> List.sortBy .name
-                        |> List.map gameSummaryView
-                    )
-                ]
+        sharedGames =
+            ownedByAll model
+    in
+    div []
+        [ playerSummariesView (Dict.values playerData)
+        , h3 [] [ text (String.fromInt (List.length sharedGames)), text " Multiplayer Options" ]
+        , div []
+            (ownedByAll model
+                |> List.map .summary
+                |> List.sortBy .name
+                |> List.map gameSummaryView
+            )
+        ]
 
 
 playerSummariesView : List PlayerData -> Html Msg
@@ -265,7 +250,7 @@ playerSummaryView playerData =
                     ( profile.personaName, profile.avatarMedium )
 
         note =
-            case playerData.games of
+            case playerData.gameCount of
                 NotAsked ->
                     "..."
 
@@ -275,8 +260,8 @@ playerSummaryView playerData =
                 Failure _ ->
                     "Error"
 
-                Success gameList ->
-                    String.fromInt gameList.gameCount ++ " games"
+                Success gameCount ->
+                    String.fromInt gameCount ++ " games"
     in
     Ui.playerCard [ class "mr-10" ]
         { name = name, avatar = avatar, note = note }
