@@ -99,6 +99,11 @@ onlineCoOp game =
     Set.member "Online Co-op" game.summary.categories
 
 
+multiplayer : GameData -> Bool
+multiplayer game =
+    Set.member "Multi-player" game.summary.categories
+
+
 remotePlayTogether : GameData -> Bool
 remotePlayTogether game =
     Set.member "Remote Play Together" game.summary.categories
@@ -106,7 +111,7 @@ remotePlayTogether game =
 
 multiplayerNow : Model -> GameData -> Bool
 multiplayerNow model game =
-    (ownedByAll model game && (onlinePvp game || onlineCoOp game))
+    (ownedByAll model game && (onlinePvp game || onlineCoOp game || multiplayer game))
         || remotePlayTogether game
 
 
