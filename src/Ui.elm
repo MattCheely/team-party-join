@@ -6,7 +6,7 @@ import Html.Attributes exposing (alt, class, src)
 
 playerCard :
     List (Attribute msg)
-    -> { avatar : String, name : String, note : String }
+    -> { avatar : String, name : String, note : Html msg }
     -> Html msg
 playerCard attrs player =
     div
@@ -25,6 +25,6 @@ playerCard attrs player =
             , class "text-truncate text-left"
             ]
             [ div [ class "font-size-16 text-truncate" ] [ text player.name ]
-            , div [ class "font-size-12" ] [ text player.note ]
+            , div [ class "font-size-12" ] [ player.note ]
             ]
         ]

@@ -148,6 +148,6 @@ friendSelectionView selectedFriends friend =
             , onClick (ToggleSelected friend.steamId)
             ]
             [ Ui.playerCard [ class "w-full" ]
-                { name = friend.personaName, avatar = friend.avatarMedium, note = "" }
+                { name = friend.personaName, avatar = friend.avatarMedium, note = text "" }
             ]
         ]

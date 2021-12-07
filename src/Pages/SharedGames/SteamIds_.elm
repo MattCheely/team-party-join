@@ -8,8 +8,8 @@ import Api.Steam.SteamUser exposing (PlayerSummary)
 import Bridge exposing (..)
 import Dict exposing (Dict)
 import Gen.Params.SharedGames.SteamIds_ exposing (Params)
-import Html exposing (Html, a, div, h3, img, text)
-import Html.Attributes exposing (alt, class, href, src, target)
+import Html exposing (Html, a, div, h3, img, span, text)
+import Html.Attributes exposing (alt, attribute, class, href, src, target, title)
 import Page
 import Request
 import Set exposing (Set)
@@ -71,18 +71,43 @@ init params =
     )
 
 
+gamesLoaded : Model -> Bool
+gamesLoaded model =
+    Dict.values model.players
+        |> List.map .gameCount
+        |> List.all Data.finished
+
+
 lookupGamesForUser : String -> Cmd Msg
 lookupGamesForUser steamId =
     sendToBackend (LookupGames_SharedGames steamId)
 
 
-ownedByAll : Model -> List GameData
-ownedByAll model =
-    Dict.values model.games
-        |> List.filter
-            (\game ->
-                Set.size game.ownedBy == Dict.size model.players
-            )
+ownedByAll : Model -> GameData -> Bool
+ownedByAll model game =
+    Set.size game.ownedBy == Dict.size model.players
+
+
+onlinePvp : GameData -> Bool
+onlinePvp game =
+    Set.member "Online PvP" game.summary.categories
+        || Set.member "Online-PvP" game.summary.categories
+
+
+onlineCoOp : GameData -> Bool
+onlineCoOp game =
+    Set.member "Online Co-op" game.summary.categories
+
+
+remotePlayTogether : GameData -> Bool
+remotePlayTogether game =
+    Set.member "Remote Play Together" game.summary.categories
+
+
+multiplayerNow : Model -> GameData -> Bool
+multiplayerNow model game =
+    (ownedByAll model game && (onlinePvp game || onlineCoOp game))
+        || remotePlayTogether game
 
 
 
@@ -211,17 +236,30 @@ multiplayerOptionsView model =
         playerData =
             model.players
 
-        sharedGames =
-            ownedByAll model
+        matchedGames =
+            List.filter (multiplayerNow model) (Dict.values model.games)
     in
     div []
         [ playerSummariesView (Dict.values playerData)
-        , h3 [] [ text (String.fromInt (List.length sharedGames)), text " Multiplayer Options" ]
         , div []
-            (ownedByAll model
-                |> List.map .summary
-                |> List.sortBy .name
-                |> List.map gameSummaryView
+            (if gamesLoaded model then
+                [ h3 []
+                    [ span
+                        [ attribute "data-toggle" "tooltip"
+                        , attribute "data-title" "Owned by all with online multiplayer, or owned by anyone with remote play together"
+                        ]
+                        [ text (String.fromInt (List.length matchedGames)), text " Multiplayer Options" ]
+                    ]
+                , div []
+                    (matchedGames
+                        |> List.map .summary
+                        |> List.sortBy .name
+                        |> List.map gameSummaryView
+                    )
+                ]
+
+             else
+                [ h3 [] [ text "Fetching Game Details..." ] ]
             )
         ]
 
@@ -252,18 +290,22 @@ playerSummaryView playerData =
         note =
             case playerData.gameCount of
                 NotAsked ->
-                    "..."
+                    text "..."
 
                 Loading ->
-                    "..."
+                    text "..."
 
                 Failure _ ->
-                    "Error"
+                    span
+                        [ class "alert alert-danger py-0 px-5"
+                        , title "User's profile must be public to get games"
+                        ]
+                        [ text "Error" ]
 
                 Success gameCount ->
-                    String.fromInt gameCount ++ " games"
+                    text (String.fromInt gameCount ++ " games")
     in
-    Ui.playerCard [ class "mr-10" ]
+    Ui.playerCard [ class "mr-10 mb-10" ]
         { name = name, avatar = avatar, note = note }
 
 
@@ -274,5 +316,10 @@ gameSummaryView game =
             [ href ("https://store.steampowered.com/app/" ++ String.fromInt game.appId)
             , target "_blank"
             ]
-            [ img [ src game.logoUrl, alt game.name ] [] ]
+            [ img
+                [ src game.logoUrl
+                , title game.name
+                ]
+                []
+            ]
         ]

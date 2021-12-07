@@ -1,8 +1,12 @@
 module Api.Steam.Extra exposing (AppMetaData, getExtraAppData)
 
 import Http exposing (Error, expectJson, expectString, jsonBody)
+import Http.Tasks as Tasks exposing (resolveJson)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode exposing (Value, object)
+import Task exposing (Task)
+import Url exposing (Url)
+import Url.Builder exposing (crossOrigin, string)
 
 
 type alias AppMetaData =
@@ -12,37 +16,53 @@ type alias AppMetaData =
     }
 
 
-getExtraAppData : (Result Error (List AppMetaData) -> msg) -> List Int -> Cmd msg
-getExtraAppData msg appIds =
-    Http.post
-        { url = "https://steam-to-sqlite.vercel.app/graphql"
-        , body = jsonBody (queryFor appIds)
-        , expect = expectJson msg responseDecoder
+getExtraAppData : List Int -> Task Error (List AppMetaData)
+getExtraAppData appIds =
+    Tasks.get
+        { url = urlFor appIds
+        , resolver = resolveJson responseDecoder
         }
 
 
-queryFor : List Int -> Value
+urlFor : List Int -> String
+urlFor appIds =
+    crossOrigin "https://steam-to-sqlite.vercel.app"
+        [ "database.json" ]
+        [ string "sql" (queryFor appIds) ]
+
+
+queryFor : List Int -> String
 queryFor appIds =
-    let
-        query =
-            "{steam_app(filter: {appid: {in: ["
-                ++ String.join "," (List.map String.fromInt appIds)
-                ++ "]}}) { nodes { name appid categorysteamapplink_list { nodes { category_pk { description_ }}}}}}"
-    in
-    object [ ( "query", Encode.string query ) ]
+    """select
+  steam_app.name,
+  steam_app.appid,
+  steam_app.current_price,
+  group_concat(category.description,"|--|") as Categories
+from
+  steam_app
+  join categorysteamapplink on categorysteamapplink.steam_app_pk = steam_app.pk
+  join category on category.pk = categorysteamapplink.category_pk
+where
+  steam_app.appid in (
+     """
+        ++ String.join "," (List.map String.fromInt appIds)
+        ++ """)
+group by
+  steam_app.pk
+order by
+  steam_app.appid
+         """
 
 
 responseDecoder : Decoder (List AppMetaData)
 responseDecoder =
-    Decode.at [ "data", "steam_app", "nodes" ]
+    Decode.field "rows"
         (Decode.list
             (Decode.map3 AppMetaData
-                (Decode.field "appid" Decode.int)
-                (Decode.field "name" Decode.string)
-                (Decode.at [ "categorysteamapplink_list", "nodes" ]
-                    (Decode.list
-                        (Decode.at [ "category_pk", "description_" ] Decode.string)
-                    )
+                (Decode.index 1 Decode.int)
+                (Decode.index 0 Decode.string)
+                (Decode.index 3 Decode.string
+                    |> Decode.map (String.split "|--|")
                 )
             )
         )

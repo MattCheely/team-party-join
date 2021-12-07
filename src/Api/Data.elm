@@ -1,4 +1,4 @@
-module Api.Data exposing (Data(..), fromResult, map, toMaybe)
+module Api.Data exposing (Data(..), finished, fromResult, map, toMaybe)
 
 
 type Data error value
@@ -22,6 +22,19 @@ map fn data =
 
         Success value ->
             Success (fn value)
+
+
+finished : Data x a -> Bool
+finished data =
+    case data of
+        Failure _ ->
+            True
+
+        Success _ ->
+            True
+
+        _ ->
+            False
 
 
 fromResult : Result error value -> Data error value

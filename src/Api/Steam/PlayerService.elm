@@ -1,8 +1,12 @@
 module Api.Steam.PlayerService exposing (GameList, GameSummary, getOwnedGames)
 
 import Api.Steam as Steam exposing (QueryParameter, SteamId, boolParam, stringParam)
+import Api.Steam.Extra as Extra exposing (AppMetaData)
+import Dict exposing (Dict)
 import Http
 import Json.Decode as Decode exposing (Decoder)
+import Set exposing (Set)
+import Task exposing (Task)
 
 
 type alias GameList =
@@ -16,6 +20,7 @@ type alias GameSummary =
     , name : String
     , iconUrl : String
     , logoUrl : String
+    , categories : Set String
     }
 
 
@@ -26,7 +31,7 @@ getOwnedGames :
     -> { steamId : SteamId }
     -> Cmd msg
 getOwnedGames msg params =
-    Http.get
+    Steam.taskGet
         { url =
             urlFor [ "GetOwnedGames", "v1" ]
                 [ stringParam "steamid" params.steamId
@@ -36,8 +41,44 @@ getOwnedGames msg params =
                 -- Skipping appids_filter because I don't want to write a query encoder
                 -- for lists until we actually need it
                 ]
-        , expect = Steam.expectJson msg gameListDecoder
+        , decoder = gameListDecoder
         }
+        |> Task.andThen addCategories
+        |> Task.attempt msg
+
+
+addCategories : GameList -> Task Steam.Error GameList
+addCategories gameList =
+    let
+        ids =
+            List.map .appId gameList.games
+    in
+    Extra.getExtraAppData ids
+        |> Task.map (mergeMetadata gameList)
+        |> Task.mapError (always Steam.InternalError)
+
+
+mergeMetadata : GameList -> List AppMetaData -> GameList
+mergeMetadata gameList metadata =
+    let
+        metadataDict =
+            List.map (\data -> ( data.appId, data )) metadata
+                |> Dict.fromList
+
+        games =
+            gameList.games
+                |> List.map
+                    (\summary ->
+                        { summary
+                            | categories =
+                                Dict.get summary.appId metadataDict
+                                    |> Maybe.map .categories
+                                    |> Maybe.withDefault []
+                                    |> Set.fromList
+                        }
+                    )
+    in
+    { gameList | games = games }
 
 
 {-| Generates a PlayerService request with the appropriate origin and API key
@@ -64,7 +105,7 @@ gameSummaryDecoder =
     Decode.field "appid" Decode.int
         |> Decode.andThen
             (\appId ->
-                Decode.map4 GameSummary
+                Decode.map5 GameSummary
                     (Decode.succeed appId)
                     (Decode.field "name" Decode.string)
                     (Decode.field "img_icon_url" Decode.string
@@ -73,6 +114,7 @@ gameSummaryDecoder =
                     (Decode.field "img_logo_url" Decode.string
                         |> Decode.map (imgUrl appId)
                     )
+                    (Decode.succeed Set.empty)
             )
 
 
