@@ -137,9 +137,6 @@ updateFromBackend msg model =
         PageMsg pageMsg ->
             update (Page pageMsg) model
 
-        NoOpToFrontend ->
-            ( model, Cmd.none )
-
 
 
 -- VIEW

@@ -91,9 +91,6 @@ update msg model =
                 |> Maybe.map (\user -> ( model, sendToFrontend cid (ActiveSession user) ))
                 |> Maybe.withDefault ( model, Cmd.none )
 
-        NoOpBackendMsg ->
-            ( model, Cmd.none )
-
 
 updateFromFrontend : SessionId -> ClientId -> ToBackend -> Model -> ( Model, Cmd BackendMsg )
 updateFromFrontend sessionId clientId msg model =
@@ -123,9 +120,6 @@ updateFromFrontend sessionId clientId msg model =
 
         SignedOut ->
             ( { model | sessions = model.sessions |> Dict.remove sessionId }, Cmd.none )
-
-        NoOpToBackend ->
-            ( model, Cmd.none )
 
 
 getSessionUser : SessionId -> Model -> Maybe PlayerSummary
