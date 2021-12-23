@@ -130,7 +130,7 @@ friendsSelectionView friendStatus selectedFriends =
                     )
                 , div []
                     [ button [ class "btn btn-primary", onClick LookupGames ]
-                        [ text "Get Shared Games" ]
+                        [ text "Party Join!" ]
                     ]
                 ]
 

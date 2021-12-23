@@ -8,8 +8,9 @@ import Api.Steam.SteamUser exposing (PlayerSummary)
 import Bridge exposing (..)
 import Dict exposing (Dict)
 import Gen.Params.SharedGames.SteamIds_ exposing (Params)
-import Html exposing (Html, a, div, h3, img, span, text)
-import Html.Attributes exposing (alt, attribute, class, href, src, target, title)
+import Html exposing (Attribute, Html, a, div, h3, img, input, label, span, text)
+import Html.Attributes exposing (alt, attribute, checked, class, for, href, id, src, target, title, type_)
+import Html.Events exposing (onCheck, onClick)
 import Page
 import Request
 import Set exposing (Set)
@@ -34,7 +35,21 @@ page shared req =
 
 type alias Model =
     { players : Dict String PlayerData
+    , includes : Includes
     , games : Dict Int GameData
+    }
+
+
+asIncludesIn : Model -> Includes -> Model
+asIncludesIn model includes =
+    { model | includes = includes }
+
+
+type alias Includes =
+    { coOp : Bool
+    , pvp : Bool
+    , multiplayer : Bool
+    , remotePlayTogether : Bool
     }
 
 
@@ -63,6 +78,7 @@ init params =
             steamIds
                 |> List.map (\id -> ( id, initialPlayerData ))
                 |> Dict.fromList
+      , includes = Includes True True True False
       , games = Dict.empty
       }
     , sendToBackend (GetPlayerSummaries_SharedGames steamIds)
@@ -88,31 +104,55 @@ ownedByAll model game =
     Set.size game.ownedBy == Dict.size model.players
 
 
-onlinePvp : GameData -> Bool
-onlinePvp game =
-    Set.member "Online PvP" game.summary.categories
-        || Set.member "Online-PvP" game.summary.categories
-
-
-onlineCoOp : GameData -> Bool
-onlineCoOp game =
-    Set.member "Online Co-op" game.summary.categories
-
-
-multiplayer : GameData -> Bool
-multiplayer game =
-    Set.member "Multi-player" game.summary.categories
-
-
-remotePlayTogether : GameData -> Bool
-remotePlayTogether game =
-    Set.member "Remote Play Together" game.summary.categories
-
-
 multiplayerNow : Model -> GameData -> Bool
 multiplayerNow model game =
-    (ownedByAll model game && (onlinePvp game || onlineCoOp game || multiplayer game))
-        || remotePlayTogether game
+    let
+        includes =
+            model.includes
+
+        allOwn =
+            ownedByAll model game
+    in
+    Set.empty
+        |> Set.union (matchCategories (allOwn && includes.pvp) game.summary pvpCategories)
+        |> Set.union (matchCategories (allOwn && includes.coOp) game.summary coOpCategories)
+        |> Set.union (matchCategories (allOwn && includes.multiplayer) game.summary multiplayerCategories)
+        |> Set.union (matchCategories includes.remotePlayTogether game.summary remotePlayCategories)
+        |> (not << Set.isEmpty)
+
+
+matchedCategories : Includes -> GameSummary -> Set String
+matchedCategories includes game =
+    Set.empty
+        |> Set.union (matchCategories includes.pvp game pvpCategories)
+        |> Set.union (matchCategories includes.coOp game coOpCategories)
+        |> Set.union (matchCategories includes.multiplayer game multiplayerCategories)
+        |> Set.union (matchCategories includes.remotePlayTogether game remotePlayCategories)
+
+
+multiplayerCategories =
+    Set.fromList [ "Multi-player" ]
+
+
+pvpCategories =
+    Set.fromList [ "Online PvP", "Online-PvP" ]
+
+
+coOpCategories =
+    Set.fromList [ "Online Co-op" ]
+
+
+remotePlayCategories =
+    Set.fromList [ "Remote Play Together" ]
+
+
+matchCategories : Bool -> GameSummary -> Set String -> Set String
+matchCategories doMatch game categories =
+    if not doMatch then
+        Set.empty
+
+    else
+        Set.intersect game.categories categories
 
 
 
@@ -122,6 +162,10 @@ multiplayerNow model game =
 type Msg
     = GotGames String (Data Steam.Error GameList)
     | GotPlayerSummaries (Data Steam.Error (List PlayerSummary))
+    | SetCoOp Bool
+    | SetPvP Bool
+    | SetRemotePlay Bool
+    | SetMultiplayer Bool
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -145,6 +189,34 @@ update msg model =
               }
             , Cmd.none
             )
+
+        SetCoOp coOp ->
+            let
+                includes =
+                    Debug.log "INCLUDES PRE TOGGLE" model.includes
+            in
+            ( { includes | coOp = coOp } |> asIncludesIn model, Cmd.none )
+
+        SetPvP pvp ->
+            let
+                includes =
+                    model.includes
+            in
+            ( { includes | pvp = pvp } |> asIncludesIn model, Cmd.none )
+
+        SetRemotePlay remotePlay ->
+            let
+                includes =
+                    model.includes
+            in
+            ( { includes | remotePlayTogether = remotePlay } |> asIncludesIn model, Cmd.none )
+
+        SetMultiplayer multiplayer ->
+            let
+                includes =
+                    model.includes
+            in
+            ( { includes | multiplayer = multiplayer } |> asIncludesIn model, Cmd.none )
 
 
 addGamesFor : String -> Data Steam.Error GameList -> Dict Int GameData -> Dict Int GameData
@@ -240,33 +312,68 @@ multiplayerOptionsView model =
     let
         playerData =
             model.players
+    in
+    div []
+        [ playerSummariesView (Dict.values playerData)
+        , filterOptionsView (Debug.log "Includes" model.includes)
+        , gameOptionsView model
+        ]
 
+
+filterOptionsView : Includes -> Html Msg
+filterOptionsView includes =
+    div [ class "d-flex mt-10" ]
+        [ checkbox [ onCheck SetCoOp, class "mr-20" ] "Co-Op" includes.coOp
+        , checkbox [ onCheck SetPvP, class "mr-20" ] "Pvp" includes.pvp
+        , checkbox
+            [ onCheck SetMultiplayer
+            , class "mr-20"
+            , attribute "data-toggle" "tooltip"
+            , attribute "data-title" "Some online games are just flagged as 'Multiplayer'"
+            ]
+            "\"Multiplayer\""
+            includes.multiplayer
+        , checkbox
+            [ onCheck SetRemotePlay
+            , attribute "data-toggle" "tooltip"
+            , attribute "data-title" "Matches if anyone in the party owns it"
+            ]
+            "Remote Play Together"
+            includes.remotePlayTogether
+        ]
+
+
+checkbox : List (Attribute msg) -> String -> Bool -> Html msg
+checkbox attrs labelStr isChecked =
+    div (class "custom-checkbox" :: attrs)
+        [ input [ type_ "checkbox", id labelStr, checked isChecked ] []
+        , label [ for labelStr ] [ text labelStr ]
+        ]
+
+
+gameOptionsView : Model -> Html Msg
+gameOptionsView model =
+    let
         matchedGames =
             List.filter (multiplayerNow model) (Dict.values model.games)
     in
     div []
-        [ playerSummariesView (Dict.values playerData)
-        , div []
-            (if gamesLoaded model then
-                [ h3 []
-                    [ span
-                        [ attribute "data-toggle" "tooltip"
-                        , attribute "data-title" "Owned by all with online multiplayer, or owned by anyone with remote play together"
-                        ]
-                        [ text (String.fromInt (List.length matchedGames)), text " Multiplayer Options" ]
-                    ]
-                , div []
-                    (matchedGames
-                        |> List.map .summary
-                        |> List.sortBy .name
-                        |> List.map gameSummaryView
-                    )
+        (if gamesLoaded model then
+            [ h3 []
+                [ span []
+                    [ text (String.fromInt (List.length matchedGames)), text " Options" ]
                 ]
+            , div []
+                (matchedGames
+                    |> List.map .summary
+                    |> List.sortBy .name
+                    |> List.map (gameSummaryView model.includes)
+                )
+            ]
 
-             else
-                [ h3 [] [ text "Fetching Game Details..." ] ]
-            )
-        ]
+         else
+            [ h3 [] [ text "Fetching Game Details..." ] ]
+        )
 
 
 playerSummariesView : List PlayerData -> Html Msg
@@ -314,16 +421,21 @@ playerSummaryView playerData =
         { name = name, avatar = avatar, note = note }
 
 
-gameSummaryView : GameSummary -> Html Msg
-gameSummaryView game =
+gameSummaryView : Includes -> GameSummary -> Html Msg
+gameSummaryView includes game =
     div [ class "d-inline-block m-5" ]
         [ a
             [ href ("https://store.steampowered.com/app/" ++ String.fromInt game.appId)
             , target "_blank"
+            , attribute "data-toggle" "tooltip"
+            , attribute "data-title" (matchedCategories includes game |> Set.toList |> String.join "\n")
+            , class "d-inline-block"
             ]
             [ img
                 [ src game.logoUrl
-                , title game.name
+                , alt game.name
+
+                -- , title (matchedCategories includes game |> Set.toList |> String.join " , ")
                 ]
                 []
             ]
