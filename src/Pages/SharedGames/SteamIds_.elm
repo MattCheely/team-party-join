@@ -209,7 +209,7 @@ update msg model =
         SetCoOp coOp ->
             let
                 includes =
-                    Debug.log "INCLUDES PRE TOGGLE" model.includes
+                    model.includes
             in
             ( { includes | coOp = coOp } |> asIncludesIn model, Cmd.none )
 
