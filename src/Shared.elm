@@ -84,12 +84,6 @@ update req msg model =
             ( { model | user = LoggedOut }, sendToBackend SignedOut )
 
 
-
--- ( { model | user = Nothing }
--- , model.user |> Maybe.map (\user -> sendToBackend (SignedOut user)) |> Maybe.withDefault Cmd.none
--- )
-
-
 subscriptions : Request -> Model -> Sub Msg
 subscriptions _ _ =
     Sub.none
@@ -125,7 +119,7 @@ userHeader userStatus =
         LoggedIn user ->
             div
                 [ class "d-flex align-items-center col-12"
-                , class "mb-10"
+                , class "mb-10 ml-5 pr-10"
                 ]
                 [ div [ class "d-flex align-items-center" ]
                     [ img
