@@ -35,7 +35,7 @@ getOwnedGames msg params =
             urlFor [ "GetOwnedGames", "v1" ]
                 [ stringParam "steamid" params.steamId
                 , boolParam "include_appinfo" True
-                , boolParam "inlcude_played_free_games" True
+                , boolParam "include_played_free_games" True
 
                 -- Skipping appids_filter because I don't want to write a query encoder
                 -- for lists until we actually need it
