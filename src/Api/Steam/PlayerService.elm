@@ -19,7 +19,6 @@ type alias GameSummary =
     { appId : Int
     , name : String
     , iconUrl : String
-    , logoUrl : String
     , categories : Set String
     }
 
@@ -105,13 +104,10 @@ gameSummaryDecoder =
     Decode.field "appid" Decode.int
         |> Decode.andThen
             (\appId ->
-                Decode.map5 GameSummary
+                Decode.map4 GameSummary
                     (Decode.succeed appId)
                     (Decode.field "name" Decode.string)
                     (Decode.field "img_icon_url" Decode.string
-                        |> Decode.map (imgUrl appId)
-                    )
-                    (Decode.field "img_logo_url" Decode.string
                         |> Decode.map (imgUrl appId)
                     )
                     (Decode.succeed Set.empty)

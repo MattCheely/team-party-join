@@ -514,9 +514,8 @@ gameSummaryView includes game =
             , class "d-inline-block"
             ]
             [ img
-                [ src game.logoUrl
+                [ src ("https://cdn.cloudflare.steamstatic.com/steam/apps/" ++ String.fromInt game.appId ++  "/header_292x136.jpg")
                 , alt game.name
-
                 -- , title (matchedCategories includes game |> Set.toList |> String.join " , ")
                 ]
                 []
