@@ -1,7 +1,7 @@
 module Pages.SharedGames.SteamIds_ exposing (Model, Msg(..), page)
 
 import Api.Data as Data exposing (Data(..))
-import Api.Steam as Steam
+import Api.Steam as Steam exposing (Error(..))
 import Api.Steam.Extra exposing (AppMetaData)
 import Api.Steam.PlayerService exposing (GameList, GameSummary)
 import Api.Steam.SteamUser exposing (PlayerSummary)
@@ -489,10 +489,20 @@ playerSummaryView playerData =
                 Loading ->
                     text "..."
 
-                Failure _ ->
+                Failure err ->
+                    let 
+                        errDescription =
+                            case err of
+                                AccessDenied -> 
+                                    "User's profile must be public to get games."
+                                TooManyRequests ->
+                                    "Sorry, our API key is being rate-limited right now."
+                                InternalError ->
+                                    "Something internal is broken. An API may have changed out from under us somewhere."
+                    in
                     span
                         [ class "alert alert-danger py-0 px-5"
-                        , title "User's profile must be public to get games"
+                        , title errDescription
                         ]
                         [ text "Error" ]
 
