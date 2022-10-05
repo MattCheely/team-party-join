@@ -26,7 +26,7 @@ getExtraAppData appIds =
 
 urlFor : List Int -> String
 urlFor appIds =
-    crossOrigin "https://steam-to-sqlite.vercel.app"
+    crossOrigin "https://steam-to-sqlite.fly.dev"
         [ "database.json" ]
         [ string "sql" (queryFor appIds) ]
 
