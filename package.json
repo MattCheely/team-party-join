@@ -1,7 +1,7 @@
 {
   "scripts": {
     "start": "concurrently -n 'elm-spa,lamdera' -c 'bgGreen.bold,bgBlue.bold' 'elm-spa watch' 'lamdera live'",
-    "graphql": "elm-graphql https://steam-to-sqlite.vercel.app/graphql --base Api.SteamGraph"
+    "graphql": "elm-graphql https://steam-to-sqlite.fly.dev/graphql --base Api.SteamGraph"
   },
   "devDependencies": {
     "concurrently": "^6.4.0",
